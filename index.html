@@ -122,6 +122,27 @@
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     user-select: none;
+    position: relative;
+  }
+  #path-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .path-line {
+    fill: none;
+    stroke: #fbbf24;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.78;
+    filter: drop-shadow(0 0 3px rgba(0,0,0,0.55));
+  }
+  .path-dot {
+    fill: #fbbf24;
+    opacity: 0.85;
+    filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
   }
   .cell {
     aspect-ratio: 1;
@@ -179,14 +200,17 @@
   }
   .cell .num {
     position: absolute;
-    top: 2px;
-    left: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    opacity: 0.85;
+    top: 3px;
+    left: 5px;
+    font-size: var(--num-size, 16px);
+    font-weight: 800;
+    opacity: 0.95;
     pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+    z-index: 2;
   }
   .cell.current .num { color: white; }
+  .cell .knight { z-index: 2; }
 
   .modal-backdrop {
     position: fixed;
@@ -392,8 +416,11 @@
     sizeSel.disabled = false;
 
     boardEl.style.gridTemplateColumns = `repeat(${size}, minmax(0, 1fr))`;
-    const cellPx = Math.min(560, window.innerWidth - 40) / size;
-    boardEl.style.width = `${Math.min(560, window.innerWidth - 40)}px`;
+    const boardWidth = Math.min(560, window.innerWidth - 40);
+    boardEl.style.width = `${boardWidth}px`;
+    const cellPx = (boardWidth - 8 - 2 * (size - 1)) / size;
+    const numSize = Math.max(14, Math.min(24, Math.round(cellPx * 0.32)));
+    boardEl.style.setProperty('--num-size', `${numSize}px`);
 
     boardEl.innerHTML = '';
     for (let r = 0; r < size; r++) {
@@ -406,6 +433,12 @@
         boardEl.appendChild(cell);
       }
     }
+    // path overlay (above cell backgrounds, below .num/.knight via z-index)
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('id', 'path-overlay');
+    boardEl.appendChild(svg);
+
     render();
     updateStats();
     showBest();
@@ -454,6 +487,40 @@
         cellAt(nr, nc).classList.add('movable');
       }
     }
+    renderPath();
+  }
+
+  function renderPath() {
+    const svg = document.getElementById('path-overlay');
+    if (!svg) return;
+    const w = boardEl.clientWidth;
+    const h = boardEl.clientHeight;
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (state.history.length === 0) return;
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const centers = state.history.map(({ r, c }) => {
+      const cell = cellAt(r, c);
+      return [cell.offsetLeft + cell.offsetWidth / 2, cell.offsetTop + cell.offsetHeight / 2];
+    });
+
+    if (centers.length >= 2) {
+      const poly = document.createElementNS(svgNS, 'polyline');
+      poly.setAttribute('points', centers.map(([x, y]) => `${x},${y}`).join(' '));
+      poly.setAttribute('class', 'path-line');
+      svg.appendChild(poly);
+    }
+    // start-cell anchor dot
+    const [sx, sy] = centers[0];
+    const dot = document.createElementNS(svgNS, 'circle');
+    dot.setAttribute('cx', sx);
+    dot.setAttribute('cy', sy);
+    dot.setAttribute('r', '4');
+    dot.setAttribute('class', 'path-dot');
+    svg.appendChild(dot);
   }
 
   function onCellClick(e) {
@@ -788,6 +855,10 @@
   window.addEventListener('resize', () => {
     const w = Math.min(560, window.innerWidth - 40);
     boardEl.style.width = `${w}px`;
+    const cellPx = (w - 8 - 2 * (state.size - 1)) / state.size;
+    const numSize = Math.max(14, Math.min(24, Math.round(cellPx * 0.32)));
+    boardEl.style.setProperty('--num-size', `${numSize}px`);
+    render();
   });
 
   // boot
