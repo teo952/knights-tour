@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>기사의 여행 - Knight's Tour</title>
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --panel: #242424;
+    --text: #e8e8e8;
+    --muted: #888;
+    --accent: #4ade80;
+    --accent-dim: rgba(74, 222, 128, 0.25);
+    --hint: #fbbf24;
+    --hint-dim: rgba(251, 191, 36, 0.35);
+    --light: #e8d4a8;
+    --dark: #8b6f47;
+    --visited: #5a4a3a;
+    --current: #2563eb;
+    --danger: #ef4444;
+    --border: #333;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin: 0 0 4px 0;
+    letter-spacing: 0.5px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+    max-width: 640px;
+  }
+  .controls label {
+    font-size: 13px;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+  select, button {
+    background: #2f2f2f;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  select:hover, button:hover:not(:disabled) {
+    background: #3a3a3a;
+    border-color: #555;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  button.primary {
+    background: var(--accent);
+    color: #0a0a0a;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  button.primary:hover:not(:disabled) {
+    background: #6ee79b;
+  }
+  button.danger {
+    background: #3a2020;
+    border-color: #5a2a2a;
+  }
+
+  .stats {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding: 10px 18px;
+    background: var(--panel);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    min-width: 320px;
+  }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat-label { color: var(--muted); font-size: 11px; }
+  .stat-value { font-weight: 600; font-size: 15px; }
+  .stat-value.best { color: var(--hint); }
+
+  #board {
+    display: grid;
+    gap: 2px;
+    background: #0a0a0a;
+    padding: 4px;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    user-select: none;
+  }
+  .cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    font-size: 14px;
+    color: #2a2a2a;
+    transition: background 0.18s, transform 0.12s;
+  }
+  .cell.light { background: var(--light); }
+  .cell.dark  { background: var(--dark); color: #f0e6d2; }
+  .cell.visited {
+    background: var(--visited);
+    color: #d4c4a8;
+  }
+  .cell.current {
+    background: var(--current) !important;
+    color: white;
+    box-shadow: inset 0 0 0 3px #93c5fd;
+  }
+  .cell.movable::after {
+    content: "";
+    position: absolute;
+    width: 30%;
+    height: 30%;
+    background: var(--accent-dim);
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .cell.hint::after {
+    background: var(--hint-dim);
+    border-color: var(--hint);
+    width: 36%;
+    height: 36%;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+  }
+  .cell.shake { animation: shake 0.3s; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+  .cell .knight {
+    font-size: clamp(22px, 5vw, 38px);
+    line-height: 1;
+    pointer-events: none;
+  }
+  .cell .num {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+  .cell.current .num { color: white; }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 32px;
+    max-width: 380px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  }
+  .modal h2 { margin: 0 0 8px 0; font-size: 22px; }
+  .modal p { color: var(--muted); margin: 6px 0; }
+  .modal .badge {
+    display: inline-block;
+    background: var(--hint);
+    color: #0a0a0a;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    margin: 8px 0;
+  }
+  .modal-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  .footer {
+    margin-top: 18px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    max-width: 600px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<h1>기사의 여행 ♞</h1>
+<div class="subtitle">체스의 나이트로 모든 칸을 정확히 한 번씩 방문하세요</div>
+
+<div class="controls">
+  <label for="size">보드</label>
+  <select id="size">
+    <option value="5">5 × 5</option>
+    <option value="6">6 × 6</option>
+    <option value="7">7 × 7</option>
+    <option value="8" selected>8 × 8</option>
+  </select>
+  <button id="restart">다시 시작</button>
+  <button id="undo">되돌리기</button>
+  <button id="hint">힌트</button>
+  <button id="autosolve" class="primary">자동 풀이</button>
+  <button id="sound">🔊 소리 켜짐</button>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="stat-label">방문</span><span class="stat-value" id="stat-visited">0 / 64</span></div>
+  <div class="stat"><span class="stat-label">이동</span><span class="stat-value" id="stat-moves">0</span></div>
+  <div class="stat"><span class="stat-label">시간</span><span class="stat-value" id="stat-time">0:00</span></div>
+  <div class="stat"><span class="stat-label">최고 기록</span><span class="stat-value best" id="stat-best">—</span></div>
+</div>
+
+<div id="board"></div>
+
+<div class="footer">
+  빈 칸을 클릭해서 나이트를 두고 시작하세요. 이후엔 L자 이동(2+1)으로만 움직일 수 있습니다.<br>
+  힌트는 Warnsdorff 규칙을 사용해 다음 좋은 수를 추천합니다.
+</div>
+
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h2 id="modal-title">완주!</h2>
+    <div id="modal-badge"></div>
+    <p id="modal-message"></p>
+    <div class="modal-buttons">
+      <button id="modal-restart" class="primary">다시 도전</button>
+      <button id="modal-close">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const KNIGHT_MOVES = [
+    [-2, -1], [-2,  1], [-1, -2], [-1,  2],
+    [ 1, -2], [ 1,  2], [ 2, -1], [ 2,  1],
+  ];
+
+  const state = {
+    size: 8,
+    board: [],
+    knight: null,
+    history: [],
+    startTime: null,
+    timerId: null,
+    soundOn: true,
+    autoSolving: false,
+    autoSolveAbort: false,
+  };
+
+  // --- DOM refs ---
+  const $ = (id) => document.getElementById(id);
+  const boardEl = $('board');
+  const sizeSel = $('size');
+  const restartBtn = $('restart');
+  const undoBtn = $('undo');
+  const hintBtn = $('hint');
+  const autoBtn = $('autosolve');
+  const soundBtn = $('sound');
+  const statVisited = $('stat-visited');
+  const statMoves = $('stat-moves');
+  const statTime = $('stat-time');
+  const statBest = $('stat-best');
+  const modal = $('modal');
+  const modalTitle = $('modal-title');
+  const modalBadge = $('modal-badge');
+  const modalMessage = $('modal-message');
+  const modalRestart = $('modal-restart');
+  const modalClose = $('modal-close');
+
+  // --- Audio ---
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { audioCtx = null; }
+    }
+    return audioCtx;
+  }
+  function tone(freq, durMs, type = 'sine', gain = 0.08) {
+    if (!state.soundOn) return;
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.value = 0;
+    osc.connect(g).connect(ctx.destination);
+    const t = ctx.currentTime;
+    g.gain.linearRampToValueAtTime(gain, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + durMs / 1000);
+    osc.start(t);
+    osc.stop(t + durMs / 1000 + 0.02);
+  }
+  const sfx = {
+    move:    () => tone(440, 90, 'triangle', 0.06),
+    place:   () => tone(660, 140, 'sine', 0.08),
+    invalid: () => tone(180, 160, 'sawtooth', 0.05),
+    hint:    () => tone(880, 200, 'sine', 0.05),
+    win:     () => {
+      [523, 659, 784, 1047].forEach((f, i) =>
+        setTimeout(() => tone(f, 220, 'triangle', 0.09), i * 130));
+    },
+    fail:    () => {
+      [440, 330, 220].forEach((f, i) =>
+        setTimeout(() => tone(f, 280, 'sawtooth', 0.07), i * 160));
+    },
+  };
+
+  // --- Game logic ---
+  function inBounds(r, c) {
+    return r >= 0 && r < state.size && c >= 0 && c < state.size;
+  }
+
+  function getValidMoves(r, c, board) {
+    const out = [];
+    for (const [dr, dc] of KNIGHT_MOVES) {
+      const nr = r + dr, nc = c + dc;
+      if (inBounds(nr, nc) && board[nr][nc] === 0) out.push([nr, nc]);
+    }
+    return out;
+  }
+
+  function initBoard(size) {
+    state.size = size;
+    state.board = Array.from({ length: size }, () => Array(size).fill(0));
+    state.knight = null;
+    state.history = [];
+    state.startTime = null;
+    stopTimer();
+    state.autoSolveAbort = true;
+    state.autoSolving = false;
+    autoBtn.textContent = '자동 풀이';
+    autoBtn.classList.add('primary');
+    autoBtn.classList.remove('danger');
+    sizeSel.disabled = false;
+
+    boardEl.style.gridTemplateColumns = `repeat(${size}, minmax(0, 1fr))`;
+    const cellPx = Math.min(560, window.innerWidth - 40) / size;
+    boardEl.style.width = `${Math.min(560, window.innerWidth - 40)}px`;
+
+    boardEl.innerHTML = '';
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        cell.addEventListener('click', onCellClick);
+        boardEl.appendChild(cell);
+      }
+    }
+    render();
+    updateStats();
+    showBest();
+  }
+
+  function cellAt(r, c) {
+    return boardEl.children[r * state.size + c];
+  }
+
+  function clearHints() {
+    boardEl.querySelectorAll('.hint').forEach(el => el.classList.remove('hint'));
+  }
+
+  function render() {
+    clearHints();
+    for (let r = 0; r < state.size; r++) {
+      for (let c = 0; c < state.size; c++) {
+        const cell = cellAt(r, c);
+        const v = state.board[r][c];
+        cell.classList.remove('visited', 'current', 'movable');
+        cell.innerHTML = '';
+        if (v > 0) {
+          cell.classList.add('visited');
+          const num = document.createElement('span');
+          num.className = 'num';
+          num.textContent = v;
+          cell.appendChild(num);
+        }
+      }
+    }
+    if (state.knight) {
+      const { r, c } = state.knight;
+      const cell = cellAt(r, c);
+      cell.classList.add('current');
+      cell.classList.remove('visited');
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = state.board[r][c];
+      cell.appendChild(num);
+      const k = document.createElement('span');
+      k.className = 'knight';
+      k.textContent = '♞';
+      cell.appendChild(k);
+      // highlight movable cells
+      for (const [nr, nc] of getValidMoves(r, c, state.board)) {
+        cellAt(nr, nc).classList.add('movable');
+      }
+    }
+  }
+
+  function onCellClick(e) {
+    if (state.autoSolving) return;
+    const r = +e.currentTarget.dataset.r;
+    const c = +e.currentTarget.dataset.c;
+    if (!state.knight) {
+      placeKnight(r, c);
+      return;
+    }
+    const validMoves = getValidMoves(state.knight.r, state.knight.c, state.board);
+    const ok = validMoves.some(([vr, vc]) => vr === r && vc === c);
+    if (!ok) {
+      shakeCell(r, c);
+      sfx.invalid();
+      return;
+    }
+    moveKnight(r, c);
+  }
+
+  function shakeCell(r, c) {
+    const el = cellAt(r, c);
+    el.classList.remove('shake');
+    void el.offsetWidth; // restart animation
+    el.classList.add('shake');
+  }
+
+  function placeKnight(r, c) {
+    state.board[r][c] = 1;
+    state.knight = { r, c };
+    state.history = [{ r, c }];
+    state.startTime = Date.now();
+    startTimer();
+    sfx.place();
+    render();
+    updateStats();
+    checkEndState();
+  }
+
+  function moveKnight(r, c) {
+    const step = state.history.length + 1;
+    state.board[r][c] = step;
+    state.knight = { r, c };
+    state.history.push({ r, c });
+    sfx.move();
+    render();
+    updateStats();
+    checkEndState();
+  }
+
+  function undo() {
+    if (state.autoSolving) return;
+    if (state.history.length === 0) return;
+    const last = state.history.pop();
+    state.board[last.r][last.c] = 0;
+    if (state.history.length === 0) {
+      state.knight = null;
+      state.startTime = null;
+      stopTimer();
+    } else {
+      const prev = state.history[state.history.length - 1];
+      state.knight = { r: prev.r, c: prev.c };
+    }
+    render();
+    updateStats();
+  }
+
+  function checkEndState() {
+    const total = state.size * state.size;
+    if (state.history.length === total) {
+      stopTimer();
+      const elapsed = Date.now() - state.startTime;
+      const moves = state.history.length - 1;
+      const isNew = saveBest(elapsed, moves);
+      sfx.win();
+      showModal(
+        '완주! ♞',
+        isNew ? '신기록!' : null,
+        `${moves}회 이동, ${formatTime(elapsed)} — 모든 칸 방문 성공!`,
+      );
+      showBest();
+      return;
+    }
+    if (state.knight) {
+      const moves = getValidMoves(state.knight.r, state.knight.c, state.board);
+      if (moves.length === 0 && state.history.length < total) {
+        stopTimer();
+        sfx.fail();
+        const remaining = total - state.history.length;
+        showModal('막혔어요', null, `남은 칸 ${remaining}개. 되돌리기로 되돌아가거나 다시 시작해보세요.`);
+      }
+    }
+  }
+
+  // --- Hint: Warnsdorff ---
+  function getHint(r, c) {
+    const moves = getValidMoves(r, c, state.board);
+    if (moves.length === 0) return null;
+    let best = null;
+    let bestDeg = Infinity;
+    for (const [nr, nc] of moves) {
+      const deg = getValidMoves(nr, nc, state.board).filter(
+        ([mr, mc]) => !(mr === r && mc === c)
+      ).length;
+      if (deg < bestDeg) {
+        bestDeg = deg;
+        best = [nr, nc];
+      }
+    }
+    return best;
+  }
+
+  function showHint() {
+    if (state.autoSolving) return;
+    if (!state.knight) {
+      shakeBoard();
+      return;
+    }
+    const h = getHint(state.knight.r, state.knight.c);
+    if (!h) return;
+    clearHints();
+    cellAt(h[0], h[1]).classList.add('hint');
+    sfx.hint();
+    setTimeout(clearHints, 2400);
+  }
+
+  function shakeBoard() {
+    boardEl.classList.remove('shake');
+    void boardEl.offsetWidth;
+    boardEl.classList.add('shake');
+    setTimeout(() => boardEl.classList.remove('shake'), 320);
+  }
+
+  // --- Auto-solve via Warnsdorff with bounded backtracking ---
+  // Returns { ok: true, path } | { ok: false, reason: 'timeout'|'no-solution' }
+  function solveFrom(startR, startC, budget = 200000) {
+    const N = state.size;
+    const board = Array.from({ length: N }, () => Array(N).fill(0));
+    const path = [];
+    let visits = 0;
+
+    function moves(r, c) {
+      const out = [];
+      for (const [dr, dc] of KNIGHT_MOVES) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < N && nc >= 0 && nc < N && board[nr][nc] === 0)
+          out.push([nr, nc]);
+      }
+      return out;
+    }
+
+    let timedOut = false;
+    function dfs(r, c, step) {
+      if (++visits > budget) { timedOut = true; return false; }
+      board[r][c] = step;
+      path.push([r, c]);
+      if (step === N * N) return true;
+      const candidates = moves(r, c).map(([nr, nc]) => ({
+        nr, nc, deg: moves(nr, nc).length,
+      }));
+      candidates.sort((a, b) => a.deg - b.deg);
+      for (const { nr, nc } of candidates) {
+        if (dfs(nr, nc, step + 1)) return true;
+        if (timedOut) break;
+      }
+      board[r][c] = 0;
+      path.pop();
+      return false;
+    }
+
+    if (dfs(startR, startC, 1)) return { ok: true, path };
+    return { ok: false, reason: timedOut ? 'timeout' : 'no-solution' };
+  }
+
+  async function startAutoSolve() {
+    if (state.autoSolving) {
+      // toggle: stop
+      state.autoSolveAbort = true;
+      return;
+    }
+    let startR, startC;
+    if (state.knight) {
+      // continue from current position by recomputing — only if board has just one move
+      if (state.history.length > 1) {
+        const ok = confirm('현재 진행 상황을 초기화하고 자동 풀이를 시작할까요?');
+        if (!ok) return;
+      }
+      startR = state.history[0].r;
+      startC = state.history[0].c;
+    } else {
+      // pick a sensible default starting point (corner often works for even N)
+      startR = 0; startC = 0;
+    }
+
+    // reset board
+    state.board = Array.from({ length: state.size }, () => Array(state.size).fill(0));
+    state.knight = null;
+    state.history = [];
+
+    autoBtn.textContent = '중단';
+    autoBtn.classList.remove('primary');
+    autoBtn.classList.add('danger');
+    sizeSel.disabled = true;
+    state.autoSolving = true;
+    state.autoSolveAbort = false;
+
+    render();
+
+    // run solver (bounded so a bad start fails quickly instead of freezing the UI)
+    const result = solveFrom(startR, startC);
+
+    if (!result.ok) {
+      state.autoSolving = false;
+      autoBtn.textContent = '자동 풀이';
+      autoBtn.classList.add('primary');
+      autoBtn.classList.remove('danger');
+      sizeSel.disabled = false;
+      sfx.fail();
+      const msg = result.reason === 'timeout'
+        ? `(${startR},${startC}) 시작점에서는 시간 안에 완주 경로를 찾지 못했습니다. 다른 시작점을 시도해보세요.`
+        : `(${startR},${startC}) 시작점에서는 완주 경로가 존재하지 않습니다.`;
+      showModal('풀이 실패', null, msg);
+      return;
+    }
+    const path = result.path;
+
+    state.startTime = Date.now();
+    startTimer();
+
+    const delay = Math.max(80, 380 - state.size * 30);
+    for (let i = 0; i < path.length; i++) {
+      if (state.autoSolveAbort) break;
+      const [r, c] = path[i];
+      state.board[r][c] = i + 1;
+      state.knight = { r, c };
+      state.history.push({ r, c });
+      if (i === 0) sfx.place(); else sfx.move();
+      render();
+      updateStats();
+      await sleep(delay);
+    }
+
+    state.autoSolving = false;
+    autoBtn.textContent = '자동 풀이';
+    autoBtn.classList.add('primary');
+    autoBtn.classList.remove('danger');
+    sizeSel.disabled = false;
+
+    if (!state.autoSolveAbort) {
+      stopTimer();
+      sfx.win();
+      showModal('자동 풀이 완료', null, `${state.size}×${state.size} 보드를 모두 방문했습니다.`);
+    }
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // --- Stats / timer ---
+  function startTimer() {
+    stopTimer();
+    state.timerId = setInterval(updateStats, 250);
+  }
+  function stopTimer() {
+    if (state.timerId) {
+      clearInterval(state.timerId);
+      state.timerId = null;
+    }
+  }
+  function formatTime(ms) {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    return `${m}:${String(s % 60).padStart(2, '0')}`;
+  }
+  function updateStats() {
+    const total = state.size * state.size;
+    statVisited.textContent = `${state.history.length} / ${total}`;
+    statMoves.textContent = Math.max(0, state.history.length - 1);
+    statTime.textContent = state.startTime ? formatTime(Date.now() - state.startTime) : '0:00';
+  }
+
+  // --- Best record ---
+  function bestKey() { return `kt-best-${state.size}`; }
+  function getBest() {
+    try { return JSON.parse(localStorage.getItem(bestKey())); }
+    catch (e) { return null; }
+  }
+  function saveBest(timeMs, moves) {
+    const cur = getBest();
+    const rec = { timeMs, moves, date: new Date().toISOString() };
+    if (!cur || timeMs < cur.timeMs) {
+      try { localStorage.setItem(bestKey(), JSON.stringify(rec)); } catch (e) {}
+      return true;
+    }
+    return false;
+  }
+  function showBest() {
+    const b = getBest();
+    statBest.textContent = b ? `${formatTime(b.timeMs)} (${b.moves}회)` : '—';
+  }
+
+  // --- Modal ---
+  function showModal(title, badge, message) {
+    modalTitle.textContent = title;
+    modalBadge.innerHTML = badge ? `<div class="badge">${badge}</div>` : '';
+    modalMessage.textContent = message || '';
+    modal.classList.add('show');
+  }
+  function hideModal() { modal.classList.remove('show'); }
+
+  // --- Wiring ---
+  sizeSel.addEventListener('change', () => initBoard(+sizeSel.value));
+  restartBtn.addEventListener('click', () => initBoard(state.size));
+  undoBtn.addEventListener('click', undo);
+  hintBtn.addEventListener('click', showHint);
+  autoBtn.addEventListener('click', startAutoSolve);
+  soundBtn.addEventListener('click', () => {
+    state.soundOn = !state.soundOn;
+    soundBtn.textContent = state.soundOn ? '🔊 소리 켜짐' : '🔇 소리 꺼짐';
+    if (state.soundOn) ensureAudio();
+  });
+  modalRestart.addEventListener('click', () => { hideModal(); initBoard(state.size); });
+  modalClose.addEventListener('click', hideModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undo(); }
+    else if (e.key === 'h') showHint();
+    else if (e.key === 'r') initBoard(state.size);
+    else if (e.key === 'Escape') hideModal();
+  });
+
+  window.addEventListener('resize', () => {
+    const w = Math.min(560, window.innerWidth - 40);
+    boardEl.style.width = `${w}px`;
+  });
+
+  // boot
+  initBoard(8);
+})();
+</script>
+
+</body>
+</html>
