@@ -636,11 +636,13 @@
       sfx.win();
       const cleanWin = !state.hintUsed && !state.autoSolveUsed;
       if (cleanWin) {
+        const SECRETS = { 5: '수퍼맨', 6: '화명중', 7: '2학년', 8: '퍼즐' };
+        const secret = SECRETS[state.size];
         showModal(
           '클리어를 축하합니다!',
           isNew ? '신기록!' : null,
           `${moves}회 이동, ${formatTime(elapsed)}`,
-          '암호는 수퍼맨입니다.',
+          secret ? `암호는 ${secret}입니다.` : null,
         );
       } else {
         showModal(
