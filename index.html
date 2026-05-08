@@ -249,6 +249,34 @@
     justify-content: center;
     margin-top: 16px;
   }
+  #modal-secret {
+    display: none;
+    margin: 14px 0 4px 0;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #1a1a1a;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 4px 14px rgba(251, 191, 36, 0.35);
+    animation: secretReveal 0.6s ease-out;
+  }
+  #modal-secret.show { display: block; }
+  #modal-secret .secret-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    opacity: 0.75;
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+  #modal-secret .secret-value {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+  @keyframes secretReveal {
+    0% { opacity: 0; transform: scale(0.9) translateY(-6px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
 
   .footer {
     margin-top: 18px;
@@ -299,6 +327,10 @@
     <h2 id="modal-title">완주!</h2>
     <div id="modal-badge"></div>
     <p id="modal-message"></p>
+    <div id="modal-secret">
+      <div class="secret-label">🔓 비밀 암호</div>
+      <div class="secret-value"></div>
+    </div>
     <div class="modal-buttons">
       <button id="modal-restart" class="primary">다시 도전</button>
       <button id="modal-close">닫기</button>
@@ -325,6 +357,8 @@
     soundOn: true,
     autoSolving: false,
     autoSolveAbort: false,
+    hintUsed: false,
+    autoSolveUsed: false,
   };
 
   // --- DOM refs ---
@@ -344,6 +378,8 @@
   const modalTitle = $('modal-title');
   const modalBadge = $('modal-badge');
   const modalMessage = $('modal-message');
+  const modalSecret = $('modal-secret');
+  const modalSecretValue = modalSecret.querySelector('.secret-value');
   const modalRestart = $('modal-restart');
   const modalClose = $('modal-close');
 
@@ -407,6 +443,8 @@
     state.knight = null;
     state.history = [];
     state.startTime = null;
+    state.hintUsed = false;
+    state.autoSolveUsed = false;
     stopTimer();
     state.autoSolveAbort = true;
     state.autoSolving = false;
@@ -596,11 +634,21 @@
       const moves = state.history.length - 1;
       const isNew = saveBest(elapsed, moves);
       sfx.win();
-      showModal(
-        '완주! ♞',
-        isNew ? '신기록!' : null,
-        `${moves}회 이동, ${formatTime(elapsed)} — 모든 칸 방문 성공!`,
-      );
+      const cleanWin = !state.hintUsed && !state.autoSolveUsed;
+      if (cleanWin) {
+        showModal(
+          '클리어를 축하합니다!',
+          isNew ? '신기록!' : null,
+          `${moves}회 이동, ${formatTime(elapsed)}`,
+          '암호는 수퍼맨입니다.',
+        );
+      } else {
+        showModal(
+          '완주! ♞',
+          isNew ? '신기록!' : null,
+          `${moves}회 이동, ${formatTime(elapsed)} — 모든 칸 방문 성공! (힌트 사용)`,
+        );
+      }
       showBest();
       return;
     }
@@ -641,6 +689,7 @@
     }
     const h = getHint(state.knight.r, state.knight.c);
     if (!h) return;
+    state.hintUsed = true;
     clearHints();
     cellAt(h[0], h[1]).classList.add('hint');
     sfx.hint();
@@ -726,6 +775,7 @@
     sizeSel.disabled = true;
     state.autoSolving = true;
     state.autoSolveAbort = false;
+    state.autoSolveUsed = true;
 
     render();
 
@@ -822,10 +872,16 @@
   }
 
   // --- Modal ---
-  function showModal(title, badge, message) {
+  function showModal(title, badge, message, secret) {
     modalTitle.textContent = title;
     modalBadge.innerHTML = badge ? `<div class="badge">${badge}</div>` : '';
     modalMessage.textContent = message || '';
+    if (secret) {
+      modalSecretValue.textContent = secret;
+      modalSecret.classList.add('show');
+    } else {
+      modalSecret.classList.remove('show');
+    }
     modal.classList.add('show');
   }
   function hideModal() { modal.classList.remove('show'); }
